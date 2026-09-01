@@ -24,10 +24,24 @@ def _reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def load_json(path: Path, *, max_bytes: int = MAX_DOCUMENT_BYTES) -> Any:
-    size = path.stat().st_size
+    # A missing or unreadable document is a document fault like any other
+    # here: report it as DocumentError so callers render "FAIL: <reason>"
+    # rather than letting an OSError escape as an uncaught traceback.
+    try:
+        size = path.stat().st_size
+    except OSError as error:
+        raise DocumentError(
+            f"cannot read {path.name}: {error.strerror}"
+        ) from error
     if size > max_bytes:
         raise DocumentError(f"document exceeds {max_bytes} bytes")
-    with path.open("r", encoding="utf-8") as handle:
+    try:
+        handle = path.open("r", encoding="utf-8")
+    except OSError as error:
+        raise DocumentError(
+            f"cannot read {path.name}: {error.strerror}"
+        ) from error
+    with handle:
         try:
             return json.load(handle, object_pairs_hook=_reject_duplicates)
         except UnicodeDecodeError as error:

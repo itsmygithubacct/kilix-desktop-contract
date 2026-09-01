@@ -390,6 +390,19 @@ def run_unit_tests() -> tuple[list[str], int]:
 
 def self_test() -> int:
     errors: list[str] = []
+    try:
+        return _run_self_test(errors)
+    except DocumentError as error:
+        # A frozen document went missing or unreadable mid-run. Report it
+        # in the same shape as every other failure, with whatever was
+        # already collected, instead of aborting on a traceback.
+        errors.append(str(error))
+        for entry in errors:
+            print(f"FAIL: {entry}", file=sys.stderr)
+        return 1
+
+
+def _run_self_test(errors: list[str]) -> int:
     fixture_errors, valid_count, invalid_count = verify_fixtures()
     errors.extend(fixture_errors)
     errors.extend(verify_canonical_json())
@@ -437,4 +450,13 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # validators() runs while the parser is built, so a missing or
+    # unreadable frozen document faults before any subcommand dispatch.
+    # Render it as "FAIL: <reason>" like every other failure rather than
+    # letting it reach the operator as a traceback.
+    try:
+        status = main()
+    except DocumentError as error:
+        print(f"FAIL: {error}", file=sys.stderr)
+        status = 1
+    raise SystemExit(status)

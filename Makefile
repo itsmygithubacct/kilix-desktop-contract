@@ -1,6 +1,13 @@
-.PHONY: common-conformance-gate f110-local-gate launcher-consumer-readiness test test-offline
+.PHONY: check common-conformance-gate f110-local-gate launcher-consumer-readiness test test-offline
 
 UV ?= uv
+
+# `check` is the convention across the 0.2.1 repositories; f110-local-gate is
+# this repository's intended entry point, so `check` is an alias for it rather
+# than a second, divergent gate.
+.DEFAULT_GOAL := check
+
+check: f110-local-gate
 
 test:
 	$(UV) run --locked python validate_contract.py --self-test
